@@ -304,6 +304,58 @@ export async function getUserPredictionsDetailed(
   });
 }
 
+export async function getMatchPredictions(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { matchId } = req.params;
+
+  if (typeof matchId !== "string" || !Types.ObjectId.isValid(matchId)) {
+    res.status(400).json({ error: "Invalid matchId" });
+    return;
+  }
+
+  const match = await Match.findById(matchId);
+
+  if (!match) {
+    res.status(404).json({ error: "Match not found" });
+    return;
+  }
+
+  const predictions = await Prediction.find({ match: matchId })
+    .populate("user", "username displayName role")
+    .sort({ submittedAt: 1 });
+  const publicPredictions = predictions.map((prediction) => ({
+    _id: String(prediction._id),
+    user: prediction.user,
+    winner: prediction.winner,
+    homeScore: prediction.homeScore,
+    awayScore: prediction.awayScore,
+    firstScorerTeam: prediction.firstScorerTeam,
+    playerOfTheMatchGuess: prediction.playerOfTheMatchGuess,
+    doublerApplied: prediction.doublerApplied,
+    submittedAt: prediction.submittedAt.toISOString(),
+    editCount: prediction.editHistory.length,
+    pointsAwarded: match.scored ? prediction.pointsAwarded : 0,
+    pointsBreakdown: match.scored
+      ? prediction.pointsBreakdown
+      : {
+          winner: 0,
+          score: 0,
+          firstScorer: 0,
+          potm: 0,
+          doubled: false,
+        },
+    scored: match.scored,
+  }));
+
+  res.json({
+    matchId,
+    predictions: publicPredictions,
+    count: publicPredictions.length,
+  });
+}
+
 export async function getMyDoublersStatus(
   req: Request,
   res: Response,

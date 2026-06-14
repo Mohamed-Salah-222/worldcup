@@ -78,6 +78,39 @@ export type Prediction = {
   editCount?: number;
 };
 
+export type PublicMatchPrediction = {
+  _id: string;
+  user: {
+    _id: string;
+    username: string;
+    displayName: string;
+    role: "user" | "admin";
+  };
+  winner: PredictionWinner;
+  homeScore: number;
+  awayScore: number;
+  firstScorerTeam: FirstScorerTeam;
+  playerOfTheMatchGuess: string;
+  doublerApplied: boolean;
+  submittedAt: string;
+  editCount: number;
+  pointsAwarded: number;
+  pointsBreakdown: {
+    winner: number;
+    score: number;
+    firstScorer: number;
+    potm: number;
+    doubled: boolean;
+  };
+  scored: boolean;
+};
+
+export type MatchPredictionsResponse = {
+  matchId: string;
+  predictions: PublicMatchPrediction[];
+  count: number;
+};
+
 export type AdminMatchPredictionsResponse = {
   match: Match;
   predictions: Prediction[];

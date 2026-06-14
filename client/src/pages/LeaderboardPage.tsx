@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { RefreshCw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,27 +17,147 @@ import { formatCairoTime } from "@/lib/format";
 import type { LeaderboardResponse, LeaderboardRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const PODIUM_STYLES = [
-  "border-amber-300 bg-amber-50",
-  "border-slate-300 bg-slate-50",
-  "border-orange-300 bg-orange-50",
+const RANK_ACCENTS = [
+  {
+    card: "border-t-4 border-t-yellow-500/70",
+    trophy: "text-yellow-500",
+  },
+  {
+    card: "border-t-4 border-t-slate-400/70",
+    trophy: "text-slate-400",
+  },
+  {
+    card: "border-t-4 border-t-amber-700/70",
+    trophy: "text-amber-700",
+  },
 ];
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md bg-muted/60 px-1 py-1.5">
+      <div className="text-sm font-semibold tabular-nums">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+    </div>
+  );
 }
 
-function StatsText({ row }: { row: LeaderboardRow }) {
+function PodiumCard({
+  user,
+  index,
+  isCurrentUser,
+}: {
+  user: LeaderboardRow;
+  index: number;
+  isCurrentUser: boolean;
+}) {
+  const accent = RANK_ACCENTS[index] ?? RANK_ACCENTS[2];
+
   return (
-    <p className="text-sm text-muted-foreground">
-      {row.predictionsCount} predictions | {row.correctWinners} winners |{" "}
-      {row.exactScores} exact scores
-    </p>
+    <Card
+      className={cn(
+        "relative overflow-hidden",
+        accent.card,
+        isCurrentUser && "ring-2 ring-primary ring-offset-2",
+      )}
+    >
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              #{user.rank}
+            </div>
+            <div className="truncate text-base font-semibold sm:text-lg">
+              {user.displayName}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              @{user.username}
+              {user.role === "admin" ? " • admin" : ""}
+            </div>
+          </div>
+          <Trophy className={cn("h-6 w-6 shrink-0 sm:h-7 sm:w-7", accent.trophy)} />
+        </div>
+        <div className="mt-3 flex items-baseline gap-1.5">
+          <span className="text-2xl font-bold tabular-nums sm:text-3xl">
+            {user.totalPoints}
+          </span>
+          <span className="text-xs text-muted-foreground">pts</span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <Stat label="Picks" value={user.predictionsCount} />
+          <Stat label="Winners" value={user.correctWinners} />
+          <Stat label="Exact" value={user.exactScores} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LeaderboardRowMobile({
+  user,
+  isCurrentUser,
+}: {
+  user: LeaderboardRow;
+  isCurrentUser: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border p-3",
+        isCurrentUser && "ring-2 ring-primary",
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-8 shrink-0 text-center text-sm font-semibold tabular-nums">
+          #{user.rank}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{user.displayName}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            @{user.username}
+            {user.role === "admin" ? " • admin" : ""}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-base font-bold leading-tight tabular-nums">
+            {user.totalPoints}
+          </div>
+          <div className="text-[10px] text-muted-foreground">pts</div>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+        <Stat label="Picks" value={user.predictionsCount} />
+        <Stat label="Winners" value={user.correctWinners} />
+        <Stat label="Exact" value={user.exactScores} />
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <>
+      <div className="space-y-2 sm:hidden">
+        <Skeleton className="h-20 rounded-md" />
+        <Skeleton className="h-20 rounded-md" />
+        <Skeleton className="h-20 rounded-md" />
+        <Skeleton className="h-20 rounded-md" />
+        <Skeleton className="h-20 rounded-md" />
+      </div>
+      <div className="hidden space-y-2 sm:block">
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+        <Skeleton className="h-12" />
+      </div>
+    </>
   );
 }
 
@@ -66,100 +184,106 @@ export function LeaderboardPage() {
   const rest = leaderboard.slice(3);
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Leaderboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data ? `Last updated ${formatCairoTime(data.lastUpdated)}` : "Loading..."}
-          </p>
+    <main className="mx-auto max-w-6xl space-y-6 p-3 sm:p-6">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold sm:text-2xl">Leaderboard</h1>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void refresh()}
+            aria-label="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {data ? `Updated ${formatCairoTime(data.lastUpdated)}` : "Loading..."}
+        </p>
       </div>
 
       {loading ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
-        </div>
+        <LoadingState />
       ) : leaderboard.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No predictions yet. Be the first to score points.
+        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+          No players on the board yet. Be the first to score points.
         </div>
       ) : (
         <>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {topThree.map((row, index) => (
-              <Card
+              <PodiumCard
                 key={row.userId}
-                className={cn(
-                  PODIUM_STYLES[index],
-                  row.userId === user?.id && "ring-2 ring-primary",
-                )}
-              >
-                <CardContent className="space-y-4 p-5">
-                  <div className="flex items-center justify-between">
-                    <Badge>#{row.rank}</Badge>
-                    {row.role === "admin" ? <Badge variant="secondary">admin</Badge> : null}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>{initials(row.displayName)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold">{row.displayName}</p>
-                      <p className="text-sm text-muted-foreground">@{row.username}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-semibold">{row.totalPoints}</p>
-                    <StatsText row={row} />
-                  </div>
-                </CardContent>
-              </Card>
+                user={row}
+                index={index}
+                isCurrentUser={row.userId === user?.id}
+              />
             ))}
           </div>
 
           {rest.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Rank</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Predictions</TableHead>
-                  <TableHead>Winners</TableHead>
-                  <TableHead>Exact Scores</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <section className="space-y-2">
+              <h2 className="mt-2 text-sm font-semibold text-muted-foreground">
+                All players
+              </h2>
+
+              <div className="space-y-2 sm:hidden">
                 {rest.map((row) => (
-                  <TableRow
+                  <LeaderboardRowMobile
                     key={row.userId}
-                    className={row.userId === user?.id ? "bg-primary/5" : undefined}
-                  >
-                    <TableCell>#{row.rank}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">
-                        {row.displayName}{" "}
-                        {row.role === "admin" ? (
-                          <Badge variant="secondary">admin</Badge>
-                        ) : null}
-                      </div>
-                      <div className="text-sm text-muted-foreground">@{row.username}</div>
-                    </TableCell>
-                    <TableCell className="font-semibold">{row.totalPoints}</TableCell>
-                    <TableCell>{row.predictionsCount}</TableCell>
-                    <TableCell>{row.correctWinners}</TableCell>
-                    <TableCell>{row.exactScores}</TableCell>
-                  </TableRow>
+                    user={row}
+                    isCurrentUser={row.userId === user?.id}
+                  />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden overflow-hidden rounded-md border sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead className="text-right">Points</TableHead>
+                      <TableHead className="text-right">Picks</TableHead>
+                      <TableHead className="text-right">Winners</TableHead>
+                      <TableHead className="text-right">Exact</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rest.map((row) => (
+                      <TableRow
+                        key={row.userId}
+                        className={row.userId === user?.id ? "bg-primary/5" : undefined}
+                      >
+                        <TableCell className="font-medium tabular-nums">
+                          #{row.rank}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{row.displayName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            @{row.username}
+                            {row.role === "admin" ? " • admin" : ""}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {row.totalPoints}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.predictionsCount}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.correctWinners}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {row.exactScores}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
           ) : null}
         </>
       )}

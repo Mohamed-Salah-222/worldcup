@@ -15,20 +15,24 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster richColors position="top-right" />
-        <Navbar />
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<MatchesPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/my-predictions" element={<MyPredictionsPage />} />
-          </Route>
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <div className="flex min-h-screen flex-col">
+          <Navbar />
+          <div className="w-full flex-1">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<MatchesPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/my-predictions" element={<MyPredictionsPage />} />
+              </Route>
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </div>
       </AuthProvider>
     </BrowserRouter>
   );

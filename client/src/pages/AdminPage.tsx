@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminMatchCardMobile } from "@/components/AdminMatchCardMobile";
 import { AdminMatchRow } from "@/components/AdminMatchRow";
 import { BackfillPredictionDialog } from "@/components/BackfillPredictionDialog";
 import { EnterResultDialog } from "@/components/EnterResultDialog";
@@ -26,14 +27,11 @@ export function AdminPage() {
   }, [refresh]);
 
   const needsScoring = useMemo(
-    () =>
-      matches.filter(
-        (match) => match.scoringStatus === "LOCKED_AWAITING_RESULT",
-      ),
+    () => matches.filter((m) => m.scoringStatus === "LOCKED_AWAITING_RESULT"),
     [matches],
   );
   const scored = useMemo(
-    () => matches.filter((match) => match.scoringStatus === "SCORED"),
+    () => matches.filter((m) => m.scoringStatus === "SCORED"),
     [matches],
   );
 
@@ -47,65 +45,106 @@ export function AdminPage() {
     setBackfillOpen(true);
   }
 
-  function renderTable(rows: Match[]) {
+  function renderContent(rows: Match[]) {
     if (loading) {
-      return <Skeleton className="h-64 w-full" />;
+      return (
+        <>
+          {/* Mobile skeletons */}
+          <div className="space-y-2 sm:hidden">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-md" />
+            ))}
+          </div>
+          {/* Desktop skeleton */}
+          <div className="hidden sm:block">
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </>
+      );
     }
 
     if (rows.length === 0) {
       return (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No matches found.
-        </div>
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          No matches in this tab.
+        </p>
       );
     }
 
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Stage</TableHead>
-            <TableHead>Match</TableHead>
-            <TableHead>Scoring</TableHead>
-            <TableHead>Score</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((match) => (
-            <AdminMatchRow
-              key={match._id}
-              match={match}
+      <>
+        {/* Mobile card list */}
+        <div className="space-y-2 sm:hidden">
+          {rows.map((m) => (
+            <AdminMatchCardMobile
+              key={m._id}
+              match={m}
               onEnterResult={openDialog}
               onBackfill={openBackfill}
             />
           ))}
-        </TableBody>
-      </Table>
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block rounded-md border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Match</TableHead>
+                <TableHead>Scoring</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((m) => (
+                <AdminMatchRow
+                  key={m._id}
+                  match={m}
+                  onEnterResult={openDialog}
+                  onBackfill={openBackfill}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </>
     );
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Admin - Match Results
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Enter regulation-time results and score predictions.
+    <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+      <div className="space-y-1">
+        <h1 className="text-xl sm:text-2xl font-semibold">Admin</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Enter match results and backfill predictions.
         </p>
       </div>
 
       <Tabs defaultValue="needs">
-        <TabsList>
-          <TabsTrigger value="needs">Needs scoring</TabsTrigger>
-          <TabsTrigger value="scored">Scored</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="needs" className="text-xs sm:text-sm">
+            <span className="sm:hidden">To score</span>
+            <span className="hidden sm:inline">Needs scoring</span>
+          </TabsTrigger>
+          <TabsTrigger value="scored" className="text-xs sm:text-sm">
+            Scored
+          </TabsTrigger>
+          <TabsTrigger value="all" className="text-xs sm:text-sm">
+            All
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="needs">{renderTable(needsScoring)}</TabsContent>
-        <TabsContent value="scored">{renderTable(scored)}</TabsContent>
-        <TabsContent value="all">{renderTable(matches)}</TabsContent>
+        <TabsContent value="needs" className="mt-3">
+          {renderContent(needsScoring)}
+        </TabsContent>
+        <TabsContent value="scored" className="mt-3">
+          {renderContent(scored)}
+        </TabsContent>
+        <TabsContent value="all" className="mt-3">
+          {renderContent(matches)}
+        </TabsContent>
       </Tabs>
 
       <EnterResultDialog

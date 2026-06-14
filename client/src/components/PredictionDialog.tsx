@@ -5,12 +5,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApiError, apiPost } from "@/lib/api";
+import { formatCairoTime } from "@/lib/format";
 import type {
   DoublerStatus,
   FirstScorerTeam,
@@ -165,138 +167,173 @@ export function PredictionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {match.homeTeam?.name || "Home"} vs {match.awayTeam?.name || "Away"}
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 border-b px-4 pb-3 pt-4 sm:px-6 sm:pt-6">
+          <DialogTitle className="text-base font-semibold sm:text-lg">
+            Submit prediction
           </DialogTitle>
-          <DialogDescription>
-            Submit or review your prediction for this match.
-          </DialogDescription>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {match.homeTeam?.tla || "Home"}
+            </span>
+            <span>vs</span>
+            <span className="font-medium text-foreground">
+              {match.awayTeam?.tla || "Away"}
+            </span>
+            <span>•</span>
+            <span>{formatCairoTime(match.utcDate)}</span>
+          </div>
         </DialogHeader>
 
-        {locked ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            Predictions locked — kickoff has passed.
-          </div>
-        ) : null}
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+            {locked ? (
+              <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                Predictions locked — kickoff has passed.
+              </div>
+            ) : null}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label>Winner</Label>
-            <Select
-              value={winner}
-              onValueChange={(value) => setWinner(value as PredictionWinner)}
-              disabled={locked}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HOME">
-                  {match.homeTeam?.tla || "Home"} wins
-                </SelectItem>
-                <SelectItem value="DRAW">Draw</SelectItem>
-                <SelectItem value="AWAY">
-                  {match.awayTeam?.tla || "Away"} wins
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-1.5">
+              <Label>Winner</Label>
+              <Select
+                value={winner}
+                onValueChange={(value) => setWinner(value as PredictionWinner)}
+                disabled={locked}
+              >
+                <SelectTrigger className="h-10 w-full text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HOME">
+                    {match.homeTeam?.tla || "Home"} wins
+                  </SelectItem>
+                  <SelectItem value="DRAW">Draw</SelectItem>
+                  <SelectItem value="AWAY">
+                    {match.awayTeam?.tla || "Away"} wins
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <Label>Score</Label>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="space-y-1.5">
+              <Label>Score</Label>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={30}
+                  className="h-10 text-center text-base"
+                  value={homeScore}
+                  disabled={locked}
+                  onChange={(event) => setHomeScore(Number(event.target.value))}
+                />
+                <span className="text-muted-foreground">–</span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={30}
+                  className="h-10 text-center text-base"
+                  value={awayScore}
+                  disabled={locked}
+                  onChange={(event) => setAwayScore(Number(event.target.value))}
+                />
+              </div>
+              {validationError ? (
+                <p className="text-sm text-destructive">{validationError}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>First scorer team</Label>
+              <RadioGroup
+                value={firstScorerTeam}
+                onValueChange={(value) => setFirstScorerTeam(value as FirstScorerTeam)}
+                disabled={locked || (homeScore === 0 && awayScore === 0)}
+                className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+              >
+                {[
+                  { value: "HOME", label: match.homeTeam?.tla || "Home" },
+                  { value: "AWAY", label: match.awayTeam?.tla || "Away" },
+                  { value: "NONE", label: "No goals (0–0)" },
+                ].map((option) => (
+                  <Label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 has-[[data-state=checked]]:border-primary sm:border-0 sm:p-0"
+                  >
+                    <RadioGroupItem value={option.value} />
+                    <span>{option.label}</span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="potm">Player of the match guess</Label>
               <Input
-                type="number"
-                min={0}
-                max={30}
-                value={homeScore}
+                id="potm"
+                className="h-10 text-base"
+                placeholder="Player name (any team)"
+                value={playerOfTheMatchGuess}
                 disabled={locked}
-                onChange={(event) => setHomeScore(Number(event.target.value))}
-              />
-              <span className="text-sm text-muted-foreground">-</span>
-              <Input
-                type="number"
-                min={0}
-                max={30}
-                value={awayScore}
-                disabled={locked}
-                onChange={(event) => setAwayScore(Number(event.target.value))}
+                onChange={(event) => setPlayerOfTheMatchGuess(event.target.value)}
+                required
               />
             </div>
-            {validationError ? (
-              <p className="text-sm text-destructive">{validationError}</p>
+
+            {isDoublerStage ? (
+              <Label
+                className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-[[data-state=checked]]:border-primary"
+                title={
+                  doublerOnAnotherMatch && doublerStatus?.matchLabel
+                    ? `Already used on ${doublerStatus.matchLabel}`
+                    : undefined
+                }
+              >
+                <Checkbox
+                  id="doubler"
+                  className="mt-0.5"
+                  checked={doublerApplied}
+                  disabled={locked || doublerOnAnotherMatch}
+                  onCheckedChange={(checked) => setDoublerApplied(Boolean(checked))}
+                />
+                <div className="text-sm">
+                  <div className="font-medium">
+                    Apply {DOUBLER_LABELS[match.stage]} Doubler (×2)
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    One per stage. Doubles all points earned on this match.
+                  </div>
+                  {doublerOnAnotherMatch ? (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Already used on {doublerStatus?.matchLabel}.
+                    </div>
+                  ) : null}
+                </div>
+              </Label>
             ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label>First scorer team</Label>
-            <Select
-              value={firstScorerTeam}
-              onValueChange={(value) => setFirstScorerTeam(value as FirstScorerTeam)}
-              disabled={locked || (homeScore === 0 && awayScore === 0)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HOME">{match.homeTeam?.tla || "Home"}</SelectItem>
-                <SelectItem value="AWAY">{match.awayTeam?.tla || "Away"}</SelectItem>
-                <SelectItem value="NONE">No goals (0-0)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="potm">Player of the match guess</Label>
-            <Input
-              id="potm"
-              placeholder="Name of any player from either team"
-              value={playerOfTheMatchGuess}
-              disabled={locked}
-              onChange={(event) => setPlayerOfTheMatchGuess(event.target.value)}
-              required
-            />
-          </div>
-
-          {isDoublerStage ? (
-            <div
-              className="flex items-start gap-3 rounded-md border p-3"
-              title={
-                doublerOnAnotherMatch && doublerStatus?.matchLabel
-                  ? `Already used on ${doublerStatus.matchLabel}`
-                  : undefined
-              }
-            >
-              <Checkbox
-                id="doubler"
-                checked={doublerApplied}
-                disabled={locked || doublerOnAnotherMatch}
-                onCheckedChange={(checked) => setDoublerApplied(Boolean(checked))}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <Label htmlFor="doubler">
-                  Apply {DOUBLER_LABELS[match.stage]} doubler
-                </Label>
-                {doublerOnAnotherMatch ? (
-                  <p className="text-sm text-muted-foreground">
-                    Already used on {doublerStatus?.matchLabel}.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {!locked ? (
+          <DialogFooter className="shrink-0 flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:px-6">
             <Button
-              className="w-full"
-              type="submit"
-              disabled={submitting || Boolean(validationError)}
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => onOpenChange(false)}
             >
-              {submitting ? "Saving..." : "Save prediction"}
+              Close
             </Button>
-          ) : null}
+            {!locked ? (
+              <Button
+                className="w-full sm:w-auto"
+                type="submit"
+                disabled={submitting || Boolean(validationError)}
+              >
+                {submitting ? "Saving..." : "Save prediction"}
+              </Button>
+            ) : null}
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

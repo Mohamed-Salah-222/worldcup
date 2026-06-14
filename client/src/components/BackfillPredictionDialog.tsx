@@ -5,12 +5,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -61,7 +61,6 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
   }
-
   return "Prediction could not be backfilled";
 }
 
@@ -84,23 +83,18 @@ function validatePrediction(
   if (winner === "DRAW" && homeScore !== awayScore) {
     return "Draw predictions need equal scores.";
   }
-
   if (winner === "HOME" && homeScore <= awayScore) {
     return "Home win needs the home score to be higher.";
   }
-
   if (winner === "AWAY" && awayScore <= homeScore) {
     return "Away win needs the away score to be higher.";
   }
-
   if (homeScore === 0 && awayScore === 0 && firstScorerTeam !== "NONE") {
     return "A 0-0 prediction must use No goals.";
   }
-
   if ((homeScore > 0 || awayScore > 0) && firstScorerTeam === "NONE") {
     return "Choose Home or Away as first scorer when goals are predicted.";
   }
-
   return null;
 }
 
@@ -121,8 +115,7 @@ export function BackfillPredictionDialog({
   const [winner, setWinner] = useState<PredictionWinner>("HOME");
   const [homeScore, setHomeScore] = useState(1);
   const [awayScore, setAwayScore] = useState(0);
-  const [firstScorerTeam, setFirstScorerTeam] =
-    useState<FirstScorerTeam>("HOME");
+  const [firstScorerTeam, setFirstScorerTeam] = useState<FirstScorerTeam>("HOME");
   const [playerOfTheMatchGuess, setPlayerOfTheMatchGuess] = useState("");
   const [doublerApplied, setDoublerApplied] = useState(false);
   const [submittedAt, setSubmittedAt] = useState(defaultSubmittedAt());
@@ -157,16 +150,14 @@ export function BackfillPredictionDialog({
       .catch((error) => toast.error(getErrorMessage(error)));
   }, [match, open]);
 
-  const selectedUser = users.find((user) => user._id === selectedUserId) ?? null;
+  const selectedUser = users.find((u) => u._id === selectedUserId) ?? null;
   const existingPrediction = useMemo(
-    () => predictions.find((prediction) => userIdOf(prediction) === selectedUserId),
+    () => predictions.find((p) => userIdOf(p) === selectedUserId),
     [predictions, selectedUserId],
   );
 
   useEffect(() => {
-    if (!selectedUserId) {
-      return;
-    }
+    if (!selectedUserId) return;
 
     if (existingPrediction) {
       setWinner(existingPrediction.winner);
@@ -197,18 +188,14 @@ export function BackfillPredictionDialog({
     return null;
   }
 
+  const homeTla = match.homeTeam?.tla ?? "Home";
+  const awayTla = match.awayTeam?.tla ?? "Away";
   const isDoublerStage = match.stage !== "THIRD_PLACE";
-  const doublerOnAnotherMatch =
-    Boolean(
-      selectedUser?.stageDoubler &&
-        selectedUser.stageDoubler.matchId !== match._id,
-    );
-  const validationError = validatePrediction(
-    winner,
-    homeScore,
-    awayScore,
-    firstScorerTeam,
+  const doublerOnAnotherMatch = Boolean(
+    selectedUser?.stageDoubler &&
+      selectedUser.stageDoubler.matchId !== match._id,
   );
+  const validationError = validatePrediction(winner, homeScore, awayScore, firstScorerTeam);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -237,9 +224,7 @@ export function BackfillPredictionDialog({
       toast.success(
         `Backfilled prediction for ${selectedUser.displayName}. ${
           response.scored
-            ? `Awarded ${response.pointsAwarded ?? 0} points (new total ${
-                response.userNewTotal ?? 0
-              }).`
+            ? `Awarded ${response.pointsAwarded ?? 0} points (new total ${response.userNewTotal ?? 0}).`
             : "Will be scored when admin enters the result."
         }`,
       );
@@ -254,174 +239,202 @@ export function BackfillPredictionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md sm:max-w-lg p-0 gap-0 max-h-[90dvh] overflow-hidden flex flex-col">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b shrink-0">
           <DialogTitle>
-            Backfill: {match.homeTeam?.name || "Home"} vs{" "}
-            {match.awayTeam?.name || "Away"}
+            Backfill: {match.homeTeam?.name ?? "Home"} vs{" "}
+            {match.awayTeam?.name ?? "Away"}
           </DialogTitle>
-          <DialogDescription>
-            {formatCairoTime(match.utcDate)} | {match.stage}
-          </DialogDescription>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            {formatCairoTime(match.utcDate)} · {match.stage}
+          </p>
         </DialogHeader>
 
-        {selectedUser ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-            Backfilling on behalf of {selectedUser.displayName}. This bypasses
-            the kickoff lock and is logged in the audit trail.
-          </div>
-        ) : null}
-
-        {match.scored ? (
-          <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
-            This match is already scored. Submitting will award points immediately.
-          </div>
-        ) : null}
-
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label>User</Label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a user" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user._id} value={user._id}>
-                    {user.displayName} @{user.username}
-                    {user.hasPrediction ? " (already predicted)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Winner</Label>
-            <Select
-              value={winner}
-              onValueChange={(value) => setWinner(value as PredictionWinner)}
-              disabled={!selectedUser}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HOME">
-                  {match.homeTeam?.tla || "Home"} wins
-                </SelectItem>
-                <SelectItem value="DRAW">Draw</SelectItem>
-                <SelectItem value="AWAY">
-                  {match.awayTeam?.tla || "Away"} wins
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Home score</Label>
-              <Input
-                type="number"
-                min={0}
-                max={30}
-                value={homeScore}
-                disabled={!selectedUser}
-                onChange={(event) => setHomeScore(Number(event.target.value))}
-              />
+        <div className="overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 flex-1">
+          <form id="backfill-form" className="space-y-4" onSubmit={handleSubmit}>
+            {/* Warning banners */}
+            <div className="rounded-md border bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 px-3 py-2 text-xs sm:text-sm text-amber-800 dark:text-amber-400">
+              ⚠️ Backfilling on behalf of another user. Logged in audit trail.
             </div>
-            <div className="space-y-2">
-              <Label>Away score</Label>
-              <Input
-                type="number"
-                min={0}
-                max={30}
-                value={awayScore}
-                disabled={!selectedUser}
-                onChange={(event) => setAwayScore(Number(event.target.value))}
-              />
-            </div>
-          </div>
-          {validationError ? (
-            <p className="text-sm text-destructive">{validationError}</p>
-          ) : null}
-
-          <div className="space-y-2">
-            <Label>First scorer</Label>
-            <Select
-              value={firstScorerTeam}
-              onValueChange={(value) => setFirstScorerTeam(value as FirstScorerTeam)}
-              disabled={!selectedUser || (homeScore === 0 && awayScore === 0)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HOME">{match.homeTeam?.tla || "Home"}</SelectItem>
-                <SelectItem value="AWAY">{match.awayTeam?.tla || "Away"}</SelectItem>
-                <SelectItem value="NONE">No goals</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="backfillPotm">POTM guess</Label>
-            <Input
-              id="backfillPotm"
-              value={playerOfTheMatchGuess}
-              disabled={!selectedUser}
-              onChange={(event) => setPlayerOfTheMatchGuess(event.target.value)}
-              placeholder="Name of any player from either team"
-            />
-          </div>
-
-          {isDoublerStage ? (
-            <div
-              className="flex items-start gap-3 rounded-md border p-3"
-              title={
-                doublerOnAnotherMatch
-                  ? `Already used on ${selectedUser?.stageDoubler?.matchLabel}`
-                  : undefined
-              }
-            >
-              <Checkbox
-                id="backfillDoubler"
-                checked={doublerApplied}
-                disabled={!selectedUser || doublerOnAnotherMatch}
-                onCheckedChange={(checked) => setDoublerApplied(Boolean(checked))}
-              />
-              <div className="space-y-1">
-                <Label htmlFor="backfillDoubler">
-                  Apply {DOUBLER_LABELS[match.stage] ?? match.stage} doubler
-                </Label>
-                {doublerOnAnotherMatch ? (
-                  <p className="text-sm text-muted-foreground">
-                    Already used on {selectedUser?.stageDoubler?.matchLabel}.
-                  </p>
-                ) : null}
+            {match.scored ? (
+              <div className="rounded-md border bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 px-3 py-2 text-xs sm:text-sm text-emerald-800 dark:text-emerald-400">
+                This match is already scored. Submitting will award points immediately.
               </div>
+            ) : null}
+
+            {/* User select */}
+            <div className="space-y-1.5">
+              <Label>User</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="w-full h-10 text-base">
+                  <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u._id} value={u._id}>
+                      {u.displayName} @{u.username}
+                      {u.hasPrediction ? " (already predicted)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ) : null}
 
-          <div className="space-y-2">
-            <Label htmlFor="submittedAt">Submitted at</Label>
-            <Input
-              id="submittedAt"
-              type="datetime-local"
-              value={submittedAt}
-              disabled={!selectedUser}
-              onChange={(event) => setSubmittedAt(event.target.value)}
-            />
-          </div>
+            {/* Submitted at */}
+            <div className="space-y-1.5">
+              <Label htmlFor="submittedAt" className="text-xs text-muted-foreground">
+                Submitted at (optional)
+              </Label>
+              <Input
+                id="submittedAt"
+                type="datetime-local"
+                className="h-10 text-base"
+                value={submittedAt}
+                disabled={!selectedUser}
+                onChange={(e) => setSubmittedAt(e.target.value)}
+              />
+            </div>
 
+            {/* Winner */}
+            <div className="space-y-1.5">
+              <Label>Winner</Label>
+              <Select
+                value={winner}
+                onValueChange={(v) => setWinner(v as PredictionWinner)}
+                disabled={!selectedUser}
+              >
+                <SelectTrigger className="w-full h-10 text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HOME">{homeTla} wins</SelectItem>
+                  <SelectItem value="DRAW">Draw</SelectItem>
+                  <SelectItem value="AWAY">{awayTla} wins</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Score inputs */}
+            <div className="space-y-1.5">
+              <Label>Score</Label>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={30}
+                  inputMode="numeric"
+                  className="h-10 text-base text-center"
+                  value={homeScore}
+                  disabled={!selectedUser}
+                  onChange={(e) => setHomeScore(Number(e.target.value))}
+                  aria-label={`${homeTla} score`}
+                />
+                <span className="text-muted-foreground select-none">–</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={30}
+                  inputMode="numeric"
+                  className="h-10 text-base text-center"
+                  value={awayScore}
+                  disabled={!selectedUser}
+                  onChange={(e) => setAwayScore(Number(e.target.value))}
+                  aria-label={`${awayTla} score`}
+                />
+              </div>
+              {validationError ? (
+                <p className="text-sm text-destructive">{validationError}</p>
+              ) : null}
+            </div>
+
+            {/* First scorer */}
+            <div className="space-y-1.5">
+              <Label>First scorer</Label>
+              <RadioGroup
+                value={firstScorerTeam}
+                onValueChange={(v) => setFirstScorerTeam(v as FirstScorerTeam)}
+                disabled={!selectedUser || (homeScore === 0 && awayScore === 0)}
+                className="flex flex-col sm:flex-row gap-2 sm:gap-3"
+              >
+                {[
+                  { value: "HOME", label: homeTla },
+                  { value: "AWAY", label: awayTla },
+                  { value: "NONE", label: "No goals" },
+                ].map((opt) => (
+                  <Label
+                    key={opt.value}
+                    className="flex items-center gap-2 cursor-pointer border rounded-md px-3 py-2.5 sm:flex-1 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                  >
+                    <RadioGroupItem value={opt.value} />
+                    {opt.label}
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* POTM */}
+            <div className="space-y-1.5">
+              <Label htmlFor="backfillPotm">POTM guess</Label>
+              <Input
+                id="backfillPotm"
+                className="h-10 text-base"
+                value={playerOfTheMatchGuess}
+                disabled={!selectedUser}
+                onChange={(e) => setPlayerOfTheMatchGuess(e.target.value)}
+                placeholder="Name of any player from either team"
+              />
+            </div>
+
+            {/* Doubler */}
+            {isDoublerStage ? (
+              <div
+                className="flex items-start gap-3 rounded-md border p-3"
+                title={
+                  doublerOnAnotherMatch
+                    ? `Already used on ${selectedUser?.stageDoubler?.matchLabel}`
+                    : undefined
+                }
+              >
+                <Checkbox
+                  id="backfillDoubler"
+                  checked={doublerApplied}
+                  disabled={!selectedUser || doublerOnAnotherMatch}
+                  onCheckedChange={(checked) => setDoublerApplied(Boolean(checked))}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="backfillDoubler">
+                    Apply {DOUBLER_LABELS[match.stage] ?? match.stage} doubler
+                  </Label>
+                  {doublerOnAnotherMatch ? (
+                    <p className="text-sm text-muted-foreground">
+                      Already used on {selectedUser?.stageDoubler?.matchLabel}.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </form>
+        </div>
+
+        <div className="px-4 sm:px-6 py-3 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
           <Button
-            className="w-full"
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+          <Button
             type="submit"
+            form="backfill-form"
+            className="w-full sm:w-auto sm:ml-auto"
             disabled={!selectedUser || submitting || Boolean(validationError)}
           >
             {submitting ? "Backfilling..." : "Backfill prediction"}
           </Button>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

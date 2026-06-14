@@ -33,6 +33,7 @@ export function MatchesPage() {
   const [allLoading, setAllLoading] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [predictionsRefreshTrigger, setPredictionsRefreshTrigger] = useState(0);
 
   const refreshCore = useCallback(async () => {
     const [upcoming, myPredictions, doublersStatus] = await Promise.all([
@@ -95,7 +96,7 @@ export function MatchesPage() {
   function renderMatches(matches: Match[], isLoading: boolean) {
     if (isLoading) {
       return (
-        <div className="space-y-3">
+        <div className="space-y-3 sm:space-y-4">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />
@@ -112,13 +113,14 @@ export function MatchesPage() {
     }
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 sm:space-y-4">
         {matches.map((match) => (
           <MatchCard
             key={match._id}
             match={match}
             locked={isMatchLocked(match)}
             prediction={predictionsByMatch.get(match._id)}
+            predictionsRefreshTrigger={predictionsRefreshTrigger}
             onClick={() => openPrediction(match)}
           />
         ))}
@@ -127,10 +129,12 @@ export function MatchesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 p-6">
-      <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">Hi {user?.displayName}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Upcoming matches</h1>
+    <main className="mx-auto max-w-5xl space-y-4 p-3 sm:space-y-6 sm:p-6">
+      <div>
+        <h1 className="mb-1 text-xl font-semibold sm:text-2xl">
+          Hi {user?.displayName}
+        </h1>
+        <p className="text-sm text-muted-foreground">Upcoming matches</p>
       </div>
 
       <DoublersBanner doublers={doublers} />
@@ -143,10 +147,13 @@ export function MatchesPage() {
           }
         }}
       >
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="today">Today</TabsTrigger>
           <TabsTrigger value="tomorrow">Tomorrow</TabsTrigger>
-          <TabsTrigger value="all">All upcoming</TabsTrigger>
+          <TabsTrigger value="all">
+            <span className="sm:hidden">All</span>
+            <span className="hidden sm:inline">All upcoming</span>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="today">
           {renderMatches(todayMatches, loading)}
@@ -166,7 +173,10 @@ export function MatchesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         doublers={doublers}
-        onSaved={refreshAllData}
+        onSaved={async () => {
+          await refreshAllData();
+          setPredictionsRefreshTrigger((value) => value + 1);
+        }}
       />
     </main>
   );
