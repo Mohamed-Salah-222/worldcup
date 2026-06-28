@@ -7,6 +7,8 @@ export type AuditAction =
   | "PREDICTION_EDIT"
   | "DOUBLER_APPLY"
   | "ADMIN_PREDICTION_BACKFILL"
+  | "ADMIN_MATCH_CREATE"
+  | "ADMIN_MATCH_UPDATE"
   | "ADMIN_RESULT_ENTER"
   | "ADMIN_RESULT_EDIT"
   | "MATCH_SYNC";
@@ -40,6 +42,8 @@ const auditLogSchema = new Schema<IAuditLog>(
         "PREDICTION_EDIT",
         "DOUBLER_APPLY",
         "ADMIN_PREDICTION_BACKFILL",
+        "ADMIN_MATCH_CREATE",
+        "ADMIN_MATCH_UPDATE",
         "ADMIN_RESULT_ENTER",
         "ADMIN_RESULT_EDIT",
         "MATCH_SYNC",

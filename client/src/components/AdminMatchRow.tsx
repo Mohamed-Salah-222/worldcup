@@ -7,10 +7,12 @@ export function AdminMatchRow({
   match,
   onEnterResult,
   onBackfill,
+  onEditFixture,
 }: {
   match: Match;
   onEnterResult: (match: Match) => void;
   onBackfill: (match: Match) => void;
+  onEditFixture: (match: Match) => void;
 }) {
   const score =
     match.result?.homeScore90 !== undefined &&
@@ -36,6 +38,9 @@ export function AdminMatchRow({
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => onBackfill(match)}>
             Backfill
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => onEditFixture(match)}>
+            Edit fixture
           </Button>
         </div>
       </TableCell>

@@ -42,10 +42,12 @@ export function AdminMatchCardMobile({
   match,
   onEnterResult,
   onBackfill,
+  onEditFixture,
 }: {
   match: Match;
   onEnterResult: (match: Match) => void;
   onBackfill: (match: Match) => void;
+  onEditFixture: (match: Match) => void;
 }) {
   const stageLabel = STAGE_LABELS[match.stage] ?? match.stage;
 
@@ -119,6 +121,14 @@ export function AdminMatchCardMobile({
             className="w-full"
           >
             Backfill
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onEditFixture(match)}
+            className="col-span-2 w-full"
+          >
+            Edit fixture
           </Button>
         </div>
       </CardContent>

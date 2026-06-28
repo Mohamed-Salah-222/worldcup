@@ -3,6 +3,8 @@ import { AdminMatchCardMobile } from "@/components/AdminMatchCardMobile";
 import { AdminMatchRow } from "@/components/AdminMatchRow";
 import { BackfillPredictionDialog } from "@/components/BackfillPredictionDialog";
 import { EnterResultDialog } from "@/components/EnterResultDialog";
+import { FixtureDialog } from "@/components/FixtureDialog";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +18,8 @@ export function AdminPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [backfillMatch, setBackfillMatch] = useState<Match | null>(null);
   const [backfillOpen, setBackfillOpen] = useState(false);
+  const [fixtureMatch, setFixtureMatch] = useState<Match | null>(null);
+  const [fixtureOpen, setFixtureOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const data = await apiGet<MatchesResponse>("/api/admin/matches");
@@ -43,6 +47,16 @@ export function AdminPage() {
   function openBackfill(match: Match) {
     setBackfillMatch(match);
     setBackfillOpen(true);
+  }
+
+  function openCreateFixture() {
+    setFixtureMatch(null);
+    setFixtureOpen(true);
+  }
+
+  function openEditFixture(match: Match) {
+    setFixtureMatch(match);
+    setFixtureOpen(true);
   }
 
   function renderContent(rows: Match[]) {
@@ -81,6 +95,7 @@ export function AdminPage() {
               match={m}
               onEnterResult={openDialog}
               onBackfill={openBackfill}
+              onEditFixture={openEditFixture}
             />
           ))}
         </div>
@@ -105,6 +120,7 @@ export function AdminPage() {
                   match={m}
                   onEnterResult={openDialog}
                   onBackfill={openBackfill}
+                  onEditFixture={openEditFixture}
                 />
               ))}
             </TableBody>
@@ -116,11 +132,16 @@ export function AdminPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      <div className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-semibold">Admin</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Enter match results and backfill predictions.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-semibold">Admin</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Create knockout fixtures, enter results, and backfill predictions.
+          </p>
+        </div>
+        <Button type="button" onClick={openCreateFixture} className="w-full sm:w-auto">
+          Create fixture
+        </Button>
       </div>
 
       <Tabs defaultValue="needs">
@@ -157,6 +178,12 @@ export function AdminPage() {
         match={backfillMatch}
         open={backfillOpen}
         onOpenChange={setBackfillOpen}
+        onSaved={refresh}
+      />
+      <FixtureDialog
+        match={fixtureMatch}
+        open={fixtureOpen}
+        onOpenChange={setFixtureOpen}
         onSaved={refresh}
       />
     </main>

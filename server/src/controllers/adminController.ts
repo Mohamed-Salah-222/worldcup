@@ -2,8 +2,34 @@ import type { Request, Response } from "express";
 import { Types } from "mongoose";
 import { z } from "zod";
 import { isMatchLocked } from "../lib/matchLock";
-import { AuditLog, Doubler, Match, Prediction, User } from "../models";
+import { AuditLog, Doubler, Match, Prediction, User, type MatchStage } from "../models";
 import { scoreMatch } from "../services/scoringService";
+
+const stageSchema = z.enum([
+  "GROUP_STAGE",
+  "LAST_32",
+  "LAST_16",
+  "QUARTER_FINALS",
+  "SEMI_FINALS",
+  "THIRD_PLACE",
+  "FINAL",
+]);
+
+const teamSchema = z.object({
+  id: z.number().int().optional(),
+  name: z.string().trim().min(1).max(100),
+  shortName: z.string().trim().max(50).optional(),
+  tla: z.string().trim().min(1).max(10),
+  crest: z.string().trim().url().or(z.literal("")).optional(),
+});
+
+const fixtureSchema = z.object({
+  stage: stageSchema,
+  group: z.string().trim().max(50).nullable().optional(),
+  utcDate: z.string().datetime(),
+  homeTeam: teamSchema,
+  awayTeam: teamSchema,
+});
 
 const resultSchema = z.object({
   homeScore90: z.number().int().min(0).max(30),
@@ -69,6 +95,25 @@ function validateResultConsistency(body: z.infer<typeof resultSchema>): string |
   }
 
   return null;
+}
+
+function normalizeTeam(team: z.infer<typeof teamSchema>) {
+  return {
+    id: team.id ?? 0,
+    name: team.name,
+    shortName: team.shortName?.trim() || team.name,
+    tla: team.tla.toUpperCase(),
+    crest: team.crest?.trim() ?? "",
+  };
+}
+
+async function nextManualExternalId(): Promise<number> {
+  const lastManualMatch = await Match.findOne({ externalId: { $lt: 0 } })
+    .sort({ externalId: 1 })
+    .select("externalId")
+    .lean();
+
+  return lastManualMatch ? lastManualMatch.externalId - 1 : -1;
 }
 
 function isDoublerStage(stage: string): boolean {
@@ -267,6 +312,100 @@ export async function enterResult(req: Request, res: Response): Promise<void> {
       error: error instanceof Error ? error.message : "Could not score match.",
     });
   }
+}
+
+export async function createAdminMatch(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const body = fixtureSchema.parse(req.body);
+  const match = await Match.create({
+    externalId: await nextManualExternalId(),
+    competition: "WC",
+    stage: body.stage as MatchStage,
+    group: body.group ?? null,
+    utcDate: new Date(body.utcDate),
+    status: "SCHEDULED",
+    homeTeam: normalizeTeam(body.homeTeam),
+    awayTeam: normalizeTeam(body.awayTeam),
+    result: null,
+    scored: false,
+  });
+
+  await AuditLog.create({
+    user: req.user._id,
+    action: "ADMIN_MATCH_CREATE",
+    targetType: "Match",
+    targetId: match._id,
+    metadata: {
+      stage: match.stage,
+      utcDate: match.utcDate,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+    },
+    ip: req.ip,
+    userAgent: req.get("user-agent") ?? null,
+  });
+
+  res.status(201).json({ match });
+}
+
+export async function updateAdminMatch(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { matchId } = req.params;
+
+  if (typeof matchId !== "string" || !Types.ObjectId.isValid(matchId)) {
+    res.status(400).json({ error: "Invalid matchId" });
+    return;
+  }
+
+  const body = fixtureSchema.parse(req.body);
+  const match = await Match.findById(matchId);
+
+  if (!match) {
+    res.status(404).json({ error: "Match not found" });
+    return;
+  }
+
+  const before = {
+    stage: match.stage,
+    utcDate: match.utcDate,
+    homeTeam: match.homeTeam,
+    awayTeam: match.awayTeam,
+  };
+
+  match.stage = body.stage as MatchStage;
+  match.group = body.group ?? null;
+  match.utcDate = new Date(body.utcDate);
+  match.homeTeam = normalizeTeam(body.homeTeam);
+  match.awayTeam = normalizeTeam(body.awayTeam);
+  await match.save();
+
+  await AuditLog.create({
+    user: req.user._id,
+    action: "ADMIN_MATCH_UPDATE",
+    targetType: "Match",
+    targetId: match._id,
+    metadata: {
+      before,
+      after: {
+        stage: match.stage,
+        utcDate: match.utcDate,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+      },
+    },
+    ip: req.ip,
+    userAgent: req.get("user-agent") ?? null,
+  });
+
+  res.json({ match });
 }
 
 export async function adminListMatches(req: Request, res: Response): Promise<void> {
